@@ -2,6 +2,7 @@ import os
 import aiohttp
 import discord
 from dotenv import load_dotenv
+from typing import Set
 
 load_dotenv()
 TOKEN = os.getenv("DISCORD_TOKEN")
@@ -26,8 +27,8 @@ intents.messages = True
 client = discord.Client(intents=intents)
 
 
-def get_message_sticker_ids(message: discord.Message) -> set[int]:
-    ids: set[int] = set()
+def get_message_sticker_ids(message: discord.Message) -> Set[int]:
+    ids: Set[int] = set()
 
     # Newer discord.py commonly exposes sticker_items
     sticker_items = getattr(message, "sticker_items", None)
