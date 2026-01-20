@@ -6,17 +6,11 @@ on:
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
-      - name: SSH and deploy
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          script: |
+      - name: Pull latest and restart bot
+        run: |
             set -e
             cd "${{ secrets.DEPLOY_PATH }}"
-
             git pull origin main
             docker compose up -d --build
