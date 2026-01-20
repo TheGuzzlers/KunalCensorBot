@@ -4,11 +4,24 @@ import discord
 from dotenv import load_dotenv
 from typing import Set
 
+# Load standard .env
 load_dotenv()
 TOKEN = os.getenv("DISCORD_TOKEN")
 
 # --- CONFIG ---
-TARGET_USER_ID = 615457660015345664
+def _parse_target_user_ids(raw: str) -> Set[int]:
+    ids: Set[int] = set()
+    if not raw:
+        return ids
+    for part in raw.replace(",", " ").split():
+        try:
+            ids.add(int(part))
+        except ValueError:
+            continue
+    return ids
+
+
+TARGET_USER_IDS = _parse_target_user_ids(os.getenv("TARGET_USER_IDS", ""))
 
 BANNED_STICKER_IDS = {
     1461152152243142756,
@@ -81,7 +94,7 @@ async def on_message(message: discord.Message):
     if ALLOWED_CHANNEL_IDS and message.channel.id not in ALLOWED_CHANNEL_IDS:
         return
 
-    if message.author.id != TARGET_USER_ID:
+    if message.author.id not in TARGET_USER_IDS:
         return
 
     sticker_ids = get_message_sticker_ids(message)
