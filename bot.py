@@ -1,6 +1,7 @@
 import os
 import aiohttp
 import discord
+from discord.ext import tasks
 from dotenv import load_dotenv
 from typing import Set
 
@@ -32,6 +33,11 @@ REPLACEMENT_STICKER_ID = 1461235460943642656
 
 # Optional: restrict to certain channels
 ALLOWED_CHANNEL_IDS = set()  # e.g. {123, 456}; leave empty for all channels
+
+# Periodic sticker sender (set both to enable)
+PERIODIC_CHANNEL_ID = int(os.getenv("PERIODIC_CHANNEL_ID", "0") or "0")
+PERIODIC_STICKER_ID = int(os.getenv("PERIODIC_STICKER_ID", "0") or "0")
+PERIODIC_EVERY_HOURS = float(os.getenv("PERIODIC_EVERY_HOURS", "2") or "2")
 # --------------
 
 intents = discord.Intents.default()
@@ -79,9 +85,24 @@ async def send_sticker(channel: discord.abc.Messageable, sticker_id: int) -> Non
                 raise RuntimeError(f"Failed to send sticker ({resp.status}): {text}")
 
 
+async def get_channel_or_fetch(channel_id: int):
+    channel = client.get_channel(channel_id)
+    if channel is None:
+        try:
+            channel = await client.fetch_channel(channel_id)
+        except discord.DiscordException as e:
+            print("Failed to fetch periodic channel:", e)
+            return None
+    return channel
+
+
 @client.event
 async def on_ready():
     print(f"Logged in as {client.user} (id={client.user.id})")
+    if PERIODIC_CHANNEL_ID and PERIODIC_STICKER_ID:
+        if not periodic_sticker_sender.is_running():
+            periodic_sticker_sender.change_interval(hours=PERIODIC_EVERY_HOURS)
+            periodic_sticker_sender.start()
 
 
 @client.event
@@ -117,6 +138,24 @@ async def on_message(message: discord.Message):
         await send_sticker(message.channel, REPLACEMENT_STICKER_ID)
     except Exception as e:
         print("Failed to send replacement sticker:", e)
+
+
+@tasks.loop(hours=2)
+async def periodic_sticker_sender():
+    if not PERIODIC_CHANNEL_ID or not PERIODIC_STICKER_ID:
+        return
+    channel = await get_channel_or_fetch(PERIODIC_CHANNEL_ID)
+    if channel is None:
+        return
+    try:
+        await send_sticker(channel, PERIODIC_STICKER_ID)
+    except Exception as e:
+        print("Failed to send periodic sticker:", e)
+
+
+@periodic_sticker_sender.before_loop
+async def _periodic_sticker_sender_ready():
+    await client.wait_until_ready()
 
 
 client.run(TOKEN)
